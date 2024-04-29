@@ -38,7 +38,7 @@ class GenerativeAISample extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Gemini Picture Game',
       theme: ThemeData(
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
       ),
       home: const ChatScreen(title: 'Gemini Picture Game'),
     );
@@ -146,7 +146,7 @@ class _ChatWidgetState extends State<ChatWidget> {
   final dots = <Offset>[];
   final paintKey = GlobalKey();
   late final IdentificationService _service;
-  Future<bool>? idResult;
+  Future<(bool, String?)>? idResult;
   final _rng = math.Random();
   String secretWord = 'STAR';
 
@@ -241,7 +241,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                         //
                       ),
                     ),
-                    CustomPaint(painter: DrawingPainter(dots)),
+                    CustomPaint(painter: DrawingPainter(dots, width, height)),
                   ],
                 ),
               ),
@@ -272,10 +272,11 @@ class _ChatWidgetState extends State<ChatWidget> {
               FutureBuilder(
                 future: idResult,
                 builder: (context, snapshot) {
-                  if (snapshot.data == true) {
+                  if (snapshot.data?.$1 == true) {
                     return const StatusWidget('Correct!');
-                  } else if (snapshot.data == false) {
-                    return const StatusWidget('Not a match.');
+                  } else if (snapshot.data?.$1 == false) {
+                    final result = "Not a match. Gemini responded with: ${snapshot.data?.$2 ?? ""}";
+                    return  StatusWidget(result);
                   } else {
                     return const StatusWidget('Thinking...');
                   }
@@ -302,9 +303,11 @@ class _ChatWidgetState extends State<ChatWidget> {
 }
 
 class DrawingPainter extends CustomPainter {
-  DrawingPainter(this.dots);
+  DrawingPainter(this.dots, this.width, this.height);
 
   List<Offset> dots;
+  double width;
+  double height;
 
   @override
   void paint(ui.Canvas canvas, ui.Size size) {
@@ -389,12 +392,12 @@ class IdentificationService {
     model = GenerativeModel(model: 'gemini-pro-vision', apiKey: apiKey);
   }
 
-  Future<bool> getId(Uint8List pngBytes, String symbolName) async {
+  Future<(bool, String?)> getId(Uint8List pngBytes, String symbolName) async {
     final prompt = [
       Content.multi([
         DataPart('image/jpeg', pngBytes),
         TextPart('Does this image contain a $symbolName? Answer "yes" or'
-            ' "no" with no additional text.'),
+            ' "no". If the answer is no, tell me what is identified'),
       ]),
     ];
 
@@ -404,13 +407,19 @@ class IdentificationService {
         safetySettings: safetySettings,
         generationConfig: generationConfig,
       );
+      print(response.text);
       if (response.text?.toLowerCase().contains('yes') ?? false) {
-        return true;
+        return (true, "");
       }
-    } on GenerativeAIException {
-      return false;
-    }
 
-    return false;
+      if (response.text?.toLowerCase().contains('no') ?? false) {
+        final parts = response.text?.split("\n");
+        return (false, parts?.last);
+      }
+
+      return (false, "Unknown Object");
+    } on GenerativeAIException {
+      return (false, "Unknown object");
+    }
   }
 }
