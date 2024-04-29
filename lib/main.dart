@@ -4,14 +4,26 @@
 
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/link.dart';
 
-final wordList = ['STAR', 'HAPPY FACE', 'MOON', 'ARROW', 'DIAMOND', 'SUN'];
+final wordList = [
+  'STAR',
+  'HAPPY FACE',
+  'MOON',
+  'ARROW',
+  'DIAMOND',
+  'SUN',
+  'EARTH',
+  'SATURN',
+  'PIZZA'
+];
 
 void main() {
   runApp(const GenerativeAISample());
@@ -163,6 +175,9 @@ class _ChatWidgetState extends State<ChatWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    const width = 400.0;
+    const height = 300.0;
+
     return SizedBox.expand(
       child: SingleChildScrollView(
         child: Column(
@@ -193,10 +208,10 @@ class _ChatWidgetState extends State<ChatWidget> {
               ],
             ),
             Container(
-              width: 400,
-              height: 300,
+              width: width,
+              height: height,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
+                color: theme.colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(
                   color: theme.colorScheme.outline,
@@ -212,21 +227,21 @@ class _ChatWidgetState extends State<ChatWidget> {
                       child: GestureDetector(
                         onPanUpdate: (details) {
                           setState(() {
-                            dots.add(details.localPosition);
+                            // reject gesture events outside the selected space
+                            if (details.localPosition.dx > width - 5 ||
+                                details.localPosition.dx < 0 ||
+                                details.localPosition.dy < 0 ||
+                                details.localPosition.dy > height - 5) {
+                              // eat the event
+                            } else {
+                              dots.add(details.localPosition);
+                            }
                           });
                         },
+                        //
                       ),
                     ),
-                    for (final dot in dots)
-                      Positioned(
-                        left: dot.dx,
-                        top: dot.dy,
-                        child: Container(
-                          width: 5,
-                          height: 5,
-                          color: theme.colorScheme.onPrimaryContainer,
-                        ),
-                      ),
+                    CustomPaint(painter: DrawingPainter(dots)),
                   ],
                 ),
               ),
@@ -283,6 +298,26 @@ class _ChatWidgetState extends State<ChatWidget> {
         (await image.toByteData(format: ui.ImageByteFormat.png))!;
     final Uint8List pngBytes = byteData.buffer.asUint8List();
     return pngBytes;
+  }
+}
+
+class DrawingPainter extends CustomPainter {
+  DrawingPainter(this.dots);
+
+  List<Offset> dots;
+
+  @override
+  void paint(ui.Canvas canvas, ui.Size size) {
+    for (final dot in dots) {
+      canvas.drawRect(Rect.fromLTWH(dot.dx, dot.dy, 2.0, 2.0),
+          Paint()..color = Colors.green);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+    //return dots == (oldDelegate as DrawingPainter).dots;
   }
 }
 
