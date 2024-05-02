@@ -9,11 +9,9 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:url_launcher/link.dart';
-
 
 final wordList = [
   'STAR',
@@ -40,8 +38,8 @@ class GenerativeAISample extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Gemini Picture Game',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark)
-      ),
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue, brightness: Brightness.dark)),
       home: const ChatScreen(title: 'Gemini Picture Game'),
     );
   }
@@ -62,36 +60,43 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-        ),
-        body: switch (apiKey) {
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: switch (apiKey) {
         final providedKey? => ChatWidgetContainer(apiKey: providedKey),
         _ => ApiKeyWidget(onSubmitted: (key) {
-          if (key.toString().isNotEmpty) {
-            setState(() => apiKey = key);
-          } else {
-            showDialog(context: context, builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Text('Invalid API Key'),
-                content: const Text('You have entered an empty string for your API key.'),
-                actions: [
-                  Link(
-                    uri: Uri.https('aistudio.google.com', '/app/apikey'),
-                    target: LinkTarget.blank,
-                    builder: (context, followLink) => TextButton(
-                      onPressed: followLink,
-                      child: const Text('Get an API Key'),
-                    ),
-                  ),
-                  FilledButton(onPressed: () {Navigator.of(context).pop();}, child: Text("Cancel"))
-                ],
-              );
-            });
-          }
+            if (key.toString().isNotEmpty) {
+              setState(() => apiKey = key);
+            } else {
+              showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Invalid API Key'),
+                      content: const Text(
+                          'You have entered an empty string for your API key.'),
+                      actions: [
+                        Link(
+                          uri: Uri.https('aistudio.google.com', '/app/apikey'),
+                          target: LinkTarget.blank,
+                          builder: (context, followLink) => TextButton(
+                            onPressed: followLink,
+                            child: const Text('Get an API Key'),
+                          ),
+                        ),
+                        FilledButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text("Cancel"))
+                      ],
+                    );
+                  });
+            }
           }),
       },
-        );
+    );
   }
 }
 
@@ -101,7 +106,7 @@ class ChatWidgetContainer extends StatefulWidget {
   final String apiKey;
 
   @override
-  State<ChatWidgetContainer> createState() => _ChatWidgetContainerState(this.apiKey);
+  State<ChatWidgetContainer> createState() => _ChatWidgetContainerState(apiKey);
 }
 
 class _ChatWidgetContainerState extends State<ChatWidgetContainer> {
@@ -118,8 +123,6 @@ class _ChatWidgetContainerState extends State<ChatWidgetContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return SizedBox.expand(
       child: SingleChildScrollView(
         child: Column(
@@ -138,11 +141,17 @@ class _ChatWidgetContainerState extends State<ChatWidgetContainer> {
               onPressed: _createNewGuessWidget,
               child: const Text("Add New Attempt"),
             ),
-            const SizedBox(height: 24,),
-            GridView.count(crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, shrinkWrap: true,
-            children: [
-              ...guessWidgets,
-              ])
+            const SizedBox(
+              height: 24,
+            ),
+            GridView.count(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                shrinkWrap: true,
+                children: [
+                  ...guessWidgets,
+                ])
           ],
         ),
       ),
@@ -153,13 +162,16 @@ class _ChatWidgetContainerState extends State<ChatWidgetContainer> {
     String secretWord = wordList[_rng.nextInt(wordList.length)];
 
     setState(() {
-      guessWidgets.add(ChatWidget(apiKey: widget.apiKey, secretWord: secretWord,));
+      guessWidgets.add(ChatWidget(
+        apiKey: widget.apiKey,
+        secretWord: secretWord,
+      ));
     });
   }
 }
 
 class ChatWidget extends StatefulWidget {
-  ChatWidget({required this.apiKey, super.key, required this.secretWord});
+  const ChatWidget({required this.apiKey, super.key, required this.secretWord});
 
   final String apiKey;
   final String secretWord;
@@ -199,48 +211,52 @@ class _ChatWidgetState extends State<ChatWidget> {
 
   Widget _buildButtonBar(BuildContext context) {
     final theme = Theme.of(context);
-      return Column(children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (idResult != null)
-              FutureBuilder(
-                future: idResult,
-                builder: (context, snapshot) {
-                  return _buildIdButton(snapshot.hasData);
-                },
-              )
-            else
-              _buildIdButton(dots.isNotEmpty),
-            const SizedBox(width: 32),
-            FilledButton(style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.errorContainer, foregroundColor: theme.colorScheme.onErrorContainer),
-
-              onPressed: dots.isEmpty ? null :() => setState(() {
-                dots.clear();
-                idResult = null;
-              }),
-              child: const Text('Clear'),
-            ),
-          ],
-        ),
-        if (idResult != null)
-          FutureBuilder(
-            future: idResult,
-            builder: (context, snapshot) {
-              if (snapshot.data?.$1 == true) {
-                return const StatusWidget('Correct!');
-              } else if (snapshot.data?.$1 == false) {
-                final result =
-                    "Not a match. Gemini responded with: ${snapshot.data?.$2 ?? ""}";
-                return StatusWidget(result);
-              } else {
-                return const StatusWidget('Thinking...');
-              }
-            },
-          )
-        else
-          const StatusWidget(''),
-      ]);
+    return Column(children: [
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (idResult != null)
+            FutureBuilder(
+              future: idResult,
+              builder: (context, snapshot) {
+                return _buildIdButton(snapshot.hasData);
+              },
+            )
+          else
+            _buildIdButton(dots.isNotEmpty),
+          const SizedBox(width: 32),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.errorContainer,
+                foregroundColor: theme.colorScheme.onErrorContainer),
+            onPressed: dots.isEmpty
+                ? null
+                : () => setState(() {
+                      dots.clear();
+                      idResult = null;
+                    }),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+      if (idResult != null)
+        FutureBuilder(
+          future: idResult,
+          builder: (context, snapshot) {
+            if (snapshot.data?.$1 == true) {
+              return const StatusWidget('Correct!');
+            } else if (snapshot.data?.$1 == false) {
+              final result =
+                  "Not a match. Gemini responded with: ${snapshot.data?.$2 ?? ""}";
+              return StatusWidget(result);
+            } else {
+              return const StatusWidget('Thinking...');
+            }
+          },
+        )
+      else
+        const StatusWidget(''),
+    ]);
   }
 
   @override
@@ -307,7 +323,10 @@ class _ChatWidgetState extends State<ChatWidget> {
             ),
             //const SizedBox(height: 16),
             //PaletteWidget(),
-            const SizedBox(height: 16,),
+            const SizedBox(
+              height: 16,
+            ),
+
             ///fd
             _buildButtonBar(context),
           ],
@@ -359,7 +378,7 @@ class StatusWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ConstrainedBox(
-      constraints: BoxConstraints.loose(const Size(400,64)),
+      constraints: BoxConstraints.loose(const Size(400, 64)),
       child: Center(
         child: Text(
           status,
@@ -466,8 +485,8 @@ class ApiKeyWidget extends StatelessWidget {
           children: [
             const Text(
               'To use the Gemini API, you\'ll need an API key. '
-                  'If you don\'t already have one, '
-                  'create a key in Google AI Studio.',
+              'If you don\'t already have one, '
+              'create a key in Google AI Studio.',
             ),
             const SizedBox(height: 8),
             Link(
@@ -481,22 +500,22 @@ class ApiKeyWidget extends StatelessWidget {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   SizedBox(
-                    width: viewWidth *0.85,
+                    width: viewWidth * 0.85,
                     height: 48,
                     child: TextField(
                       maxLines: 1,
                       decoration:
-                      textFieldDecoration(context, 'Enter your API key'),
+                          textFieldDecoration(context, 'Enter your API key'),
                       controller: _textController,
                       onSubmitted: (value) {
                         onSubmitted(value);
                       },
                     ),
                   ),
-
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () {
@@ -515,6 +534,7 @@ class ApiKeyWidget extends StatelessWidget {
 }
 
 class PaletteWidget extends StatefulWidget {
+  const PaletteWidget({super.key});
 
   @override
   State<PaletteWidget> createState() => _PaletteWidgetState();
@@ -523,8 +543,14 @@ class PaletteWidget extends StatefulWidget {
 class _PaletteWidgetState extends State<PaletteWidget> {
   Color selectedColor = Colors.black;
   List<Color> colors = [
-    Colors.white, Colors.red,
-    Colors.orange, Colors.yellow, Colors.green, Colors.blue, Colors.indigo, Colors.purple
+    Colors.white,
+    Colors.red,
+    Colors.orange,
+    Colors.yellow,
+    Colors.green,
+    Colors.blue,
+    Colors.indigo,
+    Colors.purple
   ];
   late List<Widget> colorChips = [];
 
@@ -535,13 +561,22 @@ class _PaletteWidgetState extends State<PaletteWidget> {
 
   void _buildColorChips() {
     for (Color color in colors) {
-      var g = GestureDetector(child: Container(color: color, height: 10, width: 50,));
+      var g = GestureDetector(
+          child: Container(
+        color: color,
+        height: 10,
+        width: 50,
+      ));
       colorChips.add(g);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(crossAxisCount: 10, shrinkWrap: true, children: colorChips,);
+    return GridView.count(
+      crossAxisCount: 10,
+      shrinkWrap: true,
+      children: colorChips,
+    );
   }
 }
