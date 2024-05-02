@@ -2,16 +2,17 @@
 // Use of this source code is governed by a BSD-style license
 // that can be found in the LICENSE file.
 
-import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:math';
+import 'dart:ui' as ui;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/link.dart';
+
 
 final wordList = [
   'STAR',
@@ -38,7 +39,7 @@ class GenerativeAISample extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Gemini Picture Game',
       theme: ThemeData(
-        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark)
       ),
       home: const ChatScreen(title: 'Gemini Picture Game'),
     );
@@ -60,123 +61,43 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: switch (apiKey) {
-        final providedKey? => ChatWidget(apiKey: providedKey),
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: switch (apiKey) {
+        final providedKey? => ChatWidgetContainer(apiKey: providedKey),
         _ => ApiKeyWidget(onSubmitted: (key) {
             setState(() => apiKey = key);
           }),
       },
-    );
+        );
   }
 }
 
-class ApiKeyWidget extends StatelessWidget {
-  ApiKeyWidget({required this.onSubmitted, super.key});
-
-  final ValueChanged onSubmitted;
-  final TextEditingController _textController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'To use the Gemini API, you\'ll need an API key. '
-              'If you don\'t already have one, '
-              'create a key in Google AI Studio.',
-            ),
-            const SizedBox(height: 8),
-            Link(
-              uri: Uri.https('aistudio.google.com', '/app/apikey'),
-              target: LinkTarget.blank,
-              builder: (context, followLink) => TextButton(
-                onPressed: followLink,
-                child: const Text('Get an API Key'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration:
-                          textFieldDecoration(context, 'Enter your API key'),
-                      controller: _textController,
-                      onSubmitted: (value) {
-                        onSubmitted(value);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      onSubmitted(_textController.value.text);
-                    },
-                    child: const Text('Submit'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ChatWidget extends StatefulWidget {
-  const ChatWidget({required this.apiKey, super.key});
+class ChatWidgetContainer extends StatefulWidget {
+  const ChatWidgetContainer({required this.apiKey, super.key});
 
   final String apiKey;
 
   @override
-  State<ChatWidget> createState() => _ChatWidgetState();
+  State<ChatWidgetContainer> createState() => _ChatWidgetContainerState(this.apiKey);
 }
 
-class _ChatWidgetState extends State<ChatWidget> {
-  final dots = <Offset>[];
-  final paintKey = GlobalKey();
-  late final IdentificationService _service;
-  Future<(bool, String?)>? idResult;
-  final _rng = math.Random();
-  String secretWord = 'STAR';
+class _ChatWidgetContainerState extends State<ChatWidgetContainer> {
+  String? apiKey;
+  var guessWidgets = <Widget>[];
+  final Random _rng = math.Random();
+
+  _ChatWidgetContainerState(this.apiKey);
 
   @override
   void initState() {
     super.initState();
-    _service = IdentificationService(widget.apiKey);
-  }
-
-  Widget _buildIdButton(bool enabled) {
-    return ElevatedButton(
-      onPressed: !enabled
-          ? null
-          : () async {
-              setState(() => idResult = null);
-              final bytes = await _captureWidget();
-              setState(() {
-                idResult = _service.getId(bytes, secretWord);
-              });
-            },
-      child: const Text('Identify'),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    const width = 400.0;
-    const height = 300.0;
 
     return SizedBox.expand(
       child: SingleChildScrollView(
@@ -192,6 +113,128 @@ class _ChatWidgetState extends State<ChatWidget> {
                   ' model to determine if the image and secret word are a'
                   ' match!'),
             ),
+            FilledButton.tonal(
+              onPressed: _createNewGuessWidget,
+              child: const Text("Add New Attempt"),
+            ),
+            const SizedBox(height: 24,),
+            GridView.count(crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, shrinkWrap: true,
+            children: [
+              ...guessWidgets,
+              ])
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _createNewGuessWidget() {
+    String secretWord = wordList[_rng.nextInt(wordList.length)];
+
+    setState(() {
+      guessWidgets.add(ChatWidget(apiKey: widget.apiKey, secretWord: secretWord,));
+    });
+  }
+}
+
+class ChatWidget extends StatefulWidget {
+  ChatWidget({required this.apiKey, super.key, required this.secretWord});
+
+  final String apiKey;
+  final String secretWord;
+
+  @override
+  State<ChatWidget> createState() => _ChatWidgetState();
+}
+
+class _ChatWidgetState extends State<ChatWidget> {
+  final dots = <Offset>[];
+  final paintKey = GlobalKey();
+  late final IdentificationService _service;
+  Future<(bool, String?)>? idResult;
+  late String secretWord;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = IdentificationService(widget.apiKey);
+    secretWord = widget.secretWord;
+  }
+
+  Widget _buildIdButton(bool enabled) {
+    return FilledButton(
+      onPressed: !enabled
+          ? null
+          : () async {
+              setState(() => idResult = null);
+              final bytes = await _captureWidget();
+              setState(() {
+                idResult = _service.getId(bytes, secretWord);
+              });
+            },
+      child: const Text('Identify'),
+    );
+  }
+
+  Widget _buildButtonBar(BuildContext context) {
+    final theme = Theme.of(context);
+      return Column(children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (idResult != null)
+              FutureBuilder(
+                future: idResult,
+                builder: (context, snapshot) {
+                  return _buildIdButton(snapshot.hasData);
+                },
+              )
+            else
+              _buildIdButton(dots.isNotEmpty),
+            const SizedBox(width: 32),
+            FilledButton(style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.errorContainer, foregroundColor: theme.colorScheme.onErrorContainer),
+
+              onPressed: dots.isEmpty ? null :() => setState(() {
+                dots.clear();
+                idResult = null;
+              }),
+              child: const Text('Clear'),
+            ),
+          ],
+        ),
+        if (idResult != null)
+          FutureBuilder(
+            future: idResult,
+            builder: (context, snapshot) {
+              if (snapshot.data?.$1 == true) {
+                return const StatusWidget('Correct!');
+              } else if (snapshot.data?.$1 == false) {
+                final result =
+                    "Not a match. Gemini responded with: ${snapshot.data?.$2 ?? ""}";
+                return StatusWidget(result);
+              } else {
+                return const StatusWidget('Thinking...');
+              }
+            },
+          )
+        else
+          const StatusWidget(''),
+      ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    const width = 400.0;
+    const height = 300.0;
+
+    return SizedBox(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -199,14 +242,9 @@ class _ChatWidgetState extends State<ChatWidget> {
                   'Secret word:  $secretWord',
                   style: theme.textTheme.titleMedium,
                 ),
-                IconButton(
-                  onPressed: () => setState(() {
-                    secretWord = wordList[_rng.nextInt(wordList.length)];
-                  }),
-                  icon: const Icon(Icons.refresh),
-                )
               ],
             ),
+            const SizedBox(height: 16),
             Container(
               width: width,
               height: height,
@@ -246,45 +284,11 @@ class _ChatWidgetState extends State<ChatWidget> {
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (idResult != null)
-                  FutureBuilder(
-                    future: idResult,
-                    builder: (context, snapshot) {
-                      return _buildIdButton(snapshot.hasData);
-                    },
-                  )
-                else
-                  _buildIdButton(true),
-                const SizedBox(width: 32),
-                ElevatedButton(
-                  onPressed: () => setState(() {
-                    dots.clear();
-                  }),
-                  child: const Text('Clear'),
-                ),
-              ],
-            ),
-            if (idResult != null)
-              FutureBuilder(
-                future: idResult,
-                builder: (context, snapshot) {
-                  if (snapshot.data?.$1 == true) {
-                    return const StatusWidget('Correct!');
-                  } else if (snapshot.data?.$1 == false) {
-                    final result = "Not a match. Gemini responded with: ${snapshot.data?.$2 ?? ""}";
-                    return  StatusWidget(result);
-                  } else {
-                    return const StatusWidget('Thinking...');
-                  }
-                },
-              )
-            else
-              const StatusWidget(''),
-            const SizedBox(height: 100),
+            //const SizedBox(height: 16),
+            //PaletteWidget(),
+            const SizedBox(height: 16,),
+            ///fd
+            _buildButtonBar(context),
           ],
         ),
       ),
@@ -333,12 +337,12 @@ class StatusWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SizedBox(
-      height: 100,
+    return ConstrainedBox(
+      constraints: BoxConstraints.loose(const Size(400,64)),
       child: Center(
         child: Text(
           status,
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.tertiary,
           ),
         ),
@@ -421,5 +425,97 @@ class IdentificationService {
     } on GenerativeAIException {
       return (false, "Unknown object");
     }
+  }
+}
+
+class ApiKeyWidget extends StatelessWidget {
+  ApiKeyWidget({required this.onSubmitted, super.key});
+
+  final ValueChanged onSubmitted;
+  final TextEditingController _textController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'To use the Gemini API, you\'ll need an API key. '
+                  'If you don\'t already have one, '
+                  'create a key in Google AI Studio.',
+            ),
+            const SizedBox(height: 8),
+            Link(
+              uri: Uri.https('aistudio.google.com', '/app/apikey'),
+              target: LinkTarget.blank,
+              builder: (context, followLink) => TextButton(
+                onPressed: followLink,
+                child: const Text('Get an API Key'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration:
+                      textFieldDecoration(context, 'Enter your API key'),
+                      controller: _textController,
+                      onSubmitted: (value) {
+                        onSubmitted(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      onSubmitted(_textController.value.text);
+                    },
+                    child: const Text('Submit'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PaletteWidget extends StatefulWidget {
+
+  @override
+  State<PaletteWidget> createState() => _PaletteWidgetState();
+}
+
+class _PaletteWidgetState extends State<PaletteWidget> {
+  Color selectedColor = Colors.black;
+  List<Color> colors = [
+    Colors.white, Colors.red,
+    Colors.orange, Colors.yellow, Colors.green, Colors.blue, Colors.indigo, Colors.purple
+  ];
+  late List<Widget> colorChips = [];
+
+  @override
+  void initState() {
+    _buildColorChips();
+  }
+
+  void _buildColorChips() {
+    for (Color color in colors) {
+      var g = GestureDetector(child: Container(color: color, height: 10, width: 50,));
+      colorChips.add(g);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(crossAxisCount: 10, shrinkWrap: true, children: colorChips,);
   }
 }
