@@ -9,6 +9,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:url_launcher/link.dart';
@@ -67,7 +68,27 @@ class _ChatScreenState extends State<ChatScreen> {
         body: switch (apiKey) {
         final providedKey? => ChatWidgetContainer(apiKey: providedKey),
         _ => ApiKeyWidget(onSubmitted: (key) {
+          if (key.toString().isNotEmpty) {
             setState(() => apiKey = key);
+          } else {
+            showDialog(context: context, builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Invalid API Key'),
+                content: const Text('You have entered an empty string for your API key.'),
+                actions: [
+                  Link(
+                    uri: Uri.https('aistudio.google.com', '/app/apikey'),
+                    target: LinkTarget.blank,
+                    builder: (context, followLink) => TextButton(
+                      onPressed: followLink,
+                      child: const Text('Get an API Key'),
+                    ),
+                  ),
+                  FilledButton(onPressed: () {Navigator.of(context).pop();}, child: Text("Cancel"))
+                ],
+              );
+            });
+          }
           }),
       },
         );
@@ -436,6 +457,7 @@ class ApiKeyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    double viewWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -459,10 +481,13 @@ class ApiKeyWidget extends StatelessWidget {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Row(
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Expanded(
+                  SizedBox(
+                    width: viewWidth *0.85,
+                    height: 48,
                     child: TextField(
+                      maxLines: 1,
                       decoration:
                       textFieldDecoration(context, 'Enter your API key'),
                       controller: _textController,
@@ -471,8 +496,9 @@ class ApiKeyWidget extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  TextButton(
+
+                  const SizedBox(height: 16),
+                  FilledButton(
                     onPressed: () {
                       onSubmitted(_textController.value.text);
                     },
